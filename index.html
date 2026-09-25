@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
-  <meta name="description" content="Remove spaces from text and copy to clipboard" />
+  <meta name="description" content="Remove spaces from text and generate uppercase UUID v4 values" />
 
   <!-- PWA / iOS -->
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -118,6 +118,43 @@
 
     #status.success { color: #059669; }
     #status.error   { color: #dc2626; }
+
+    .section-title {
+      margin-top: 12px;
+      font-size: 1.1rem;
+      color: #334155;
+    }
+
+    #uuid-output {
+      width: 100%;
+      padding: 14px;
+      border: 2px solid #cbd5e1;
+      border-radius: 12px;
+      background: #fff;
+      color: #1e293b;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      font-size: clamp(0.8rem, 3.5vw, 1rem);
+      text-align: center;
+      outline: none;
+    }
+
+    #uuid-output:focus {
+      border-color: #2563eb;
+    }
+
+    #btn-generate {
+      background: #7c3aed;
+      color: #fff;
+    }
+
+    #btn-generate:hover { background: #6d28d9; }
+
+    #btn-copy-uuid {
+      background: #10b981;
+      color: #fff;
+    }
+
+    #btn-copy-uuid:hover { background: #059669; }
   </style>
 </head>
 <body>
@@ -130,7 +167,16 @@
 
     <div class="buttons">
       <button id="btn-remove" type="button">Remove Spaces</button>
-      <button id="btn-copy"   type="button">Copy to Clipboard</button>
+      <button id="btn-copy" type="button">Copy to Clipboard</button>
+    </div>
+
+    <h2 class="section-title">UUID v4 Generator</h2>
+
+    <input id="uuid-output" type="text" readonly aria-label="Generated UUID v4" />
+
+    <div class="buttons">
+      <button id="btn-generate" type="button">Generate New UUID</button>
+      <button id="btn-copy-uuid" type="button">Copy UUID</button>
     </div>
 
     <p id="status" aria-live="polite"></p>
@@ -139,10 +185,13 @@
   <script>
     'use strict';
 
-    const textarea  = document.getElementById('text-input');
-    const btnRemove = document.getElementById('btn-remove');
-    const btnCopy   = document.getElementById('btn-copy');
-    const status    = document.getElementById('status');
+    const textarea   = document.getElementById('text-input');
+    const btnRemove  = document.getElementById('btn-remove');
+    const btnCopy    = document.getElementById('btn-copy');
+    const uuidOutput = document.getElementById('uuid-output');
+    const btnGenerate = document.getElementById('btn-generate');
+    const btnCopyUuid = document.getElementById('btn-copy-uuid');
+    const status     = document.getElementById('status');
 
     function showStatus(msg, type) {
       status.textContent = msg;
@@ -156,20 +205,51 @@
       showStatus('Spaces removed.', 'success');
     });
 
-    btnCopy.addEventListener('click', async () => {
-      const text = textarea.value;
-      if (!text) { showStatus('Nothing to copy.', 'error'); return; }
+    async function copyText(text, source) {
+      if (!text) {
+        showStatus('Nothing to copy.', 'error');
+        return;
+      }
+
       try {
         await navigator.clipboard.writeText(text);
-        showStatus('Copied to clipboard!', 'success');
       } catch {
-        // Fallback for older iOS Safari
-        textarea.select();
+        source.select();
         document.execCommand('copy');
-        window.getSelection && window.getSelection().removeAllRanges();
-        showStatus('Copied to clipboard!', 'success');
+        window.getSelection?.().removeAllRanges();
       }
-    });
+
+      showStatus('Copied to clipboard!', 'success');
+    }
+
+    btnCopy.addEventListener('click', () => copyText(textarea.value, textarea));
+
+    function createUUIDv4() {
+      if (typeof crypto.randomUUID === 'function') {
+        return crypto.randomUUID().toUpperCase();
+      }
+
+      const bytes = crypto.getRandomValues(new Uint8Array(16));
+      bytes[6] = (bytes[6] & 0x0f) | 0x40;
+      bytes[8] = (bytes[8] & 0x3f) | 0x80;
+
+      const hex = Array.from(
+        bytes,
+        byte => byte.toString(16).padStart(2, '0')
+      ).join('').toUpperCase();
+
+      return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+    }
+
+    function generateUUID() {
+      uuidOutput.value = createUUIDv4();
+      showStatus('New UUID generated.', 'success');
+    }
+
+    btnGenerate.addEventListener('click', generateUUID);
+    btnCopyUuid.addEventListener('click', () => copyText(uuidOutput.value, uuidOutput));
+
+    uuidOutput.value = createUUIDv4();
 
     // Register service worker for PWA / offline support
     if ('serviceWorker' in navigator) {
